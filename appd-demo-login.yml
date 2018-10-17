@@ -1,0 +1,56 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: demo-login
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: demo-login
+    spec:
+      initContainers:
+      - name: agent-repo
+        image: agent-repo:4.5.0
+        imagePullPolicy: Never
+        command: ["cp", "/sharedFiles/AppServerAgent.zip", "/mountPath/AppServerAgent.zip"]
+        volumeMounts:
+        - mountPath: /mountPath
+          name: shared-files
+      volumes:
+        - name: shared-files
+          emptyDir: {}
+      serviceAccountName: appd-agent
+      containers:
+        - name: demo-login
+          image: appd-demo-login
+          imagePullPolicy: Never
+          securityContext:
+            privileged: true
+          envFrom:
+            - configMapRef:
+                name: controller-config
+          env:
+            - name: TIER_NAME
+              value: Login
+          ports:
+          - containerPort: 8079
+          volumeMounts:
+            - mountPath: /sharedFiles
+              name: shared-files
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appd-demo-login
+spec:
+  selector:
+    name: demo-login
+  ports:
+  - name: "8081"
+    port: 8081
+    targetPort: 8081
+status:
+  loadBalancer: {}
